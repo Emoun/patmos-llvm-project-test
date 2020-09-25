@@ -1,0 +1,103 @@
+# This Travis-CI build tests the Patmos LLVM compiler.
+#
+# The build ensures that the compiler works on all supported platforms
+# ( Ubuntu Linux 16/18, MacOs) and doesn't interfere with the other
+# LLVM target architectures.
+#
+# To do this, the build Tests 4 different jobs:
+# 
+# 1. Bionic: Standard Ubuntu 18 environment.
+# 2. Xenial: Standard Ubuntu 16 environment.
+#            Also has assertions enabled to ensure they aren't triggered.
+# 3. MacOs: Standard MacOs environment.
+# 4. x86: Builds the compiler with only the X86 target architecture.
+#         This job ensures that the LLVM project as a whole has not been
+#         tampered with by the changes to the Patmos target.
+# 
+# The build is divided into many stages. This is to ensure that the build
+# can run on Travis-CI, without hitting the 50 minute limit for each job.
+# The stages are designed to run in around 30 minutes, which should give
+# an adequate buffer for special situations.
+# 
+# To ensure persistance between stages, Travis-CI's caching feature is used.
+# This means when each job finishes, the build is cached, which allows the
+# same job in the following stage to download the cache and continue the work.
+# The use of caches means two builds on the same branch/PR cannot run at the
+# Same time, as they would then interfere with each others caches.
+
+language: cpp
+compiler: gcc
+os: linux
+dist: bionic
+
+cache:
+  directories: 
+  - build
+
+before_script:
+# Set path to binary dependencies
+- export PATH=$TRAVIS_BUILD_DIR/build/local/bin:$PATH
+# Update GNU make on MacOs
+- ci/macos_update_make.sh
+
+jobs:
+  include:
+  - stage: "Get Dependencies"
+    script: ci/get_dependencies.sh
+  - script: ci/get_dependencies.sh
+    dist: xenial
+    env: ASSERTIONS=true
+  - script: ci/get_dependencies.sh
+    os: osx
+    osx_image: xcode11.3
+  - script: ci/get_dependencies.sh
+    name: x86
+    env: TARGETS=x86
+      
+  - stage: "Build LLVM Part 1"
+    script: ci/build_1.sh
+  - script: ci/build_1.sh
+    dist: xenial
+    env: ASSERTIONS=true
+  - script: ci/build_1.sh
+    os: osx
+    osx_image: xcode11.3
+  - script: ci/build_1.sh
+    name: x86
+    env: TARGETS=x86
+    
+  - stage: "Build LLVM Part 2"
+    script: ci/build_2.sh
+  - script: ci/build_2.sh
+    dist: xenial
+    env: ASSERTIONS=true
+  - script: ci/build_2.sh
+    os: osx
+    osx_image: xcode11.3
+  - script: ci/build_2.sh
+    name: x86
+    env: TARGETS=x86
+    
+  - stage: "Unit & Regression Tests"
+    script: ci/run_unit_regression_tests.sh
+  - script: ci/run_unit_regression_tests.sh
+    dist: xenial
+    env: ASSERTIONS=true
+  - script: ci/run_unit_regression_tests.sh
+    os: osx
+    osx_image: xcode11.3
+  - script: ci/run_unit_regression_tests.sh
+    name: x86
+    env: TARGETS=x86
+    
+  - stage: "Finish Build"
+    script: ci/build_final.sh
+  - script: ci/build_final.sh
+    dist: xenial
+    env: ASSERTIONS=true
+  - script: ci/build_final.sh
+    os: osx
+    osx_image: xcode11.3
+  - script: ci/build_final.sh
+    name: x86
+    env: TARGETS=x86
